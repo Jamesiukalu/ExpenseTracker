@@ -22,7 +22,7 @@ import {
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
-} from "./ui/accordion";
+} from "./ui/accordian";
 import { Alert, AlertDescription } from "./ui/alert";
 import {
   HelpCircle,

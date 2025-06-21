@@ -1,861 +1,893 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { Button } from "./ui/button";
+import React, { useState } from "react";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-} from "./ui/card";
-import { Input } from "./ui/input";
-import { Label } from "./ui/label";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+} from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
+import { Switch } from "../components/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
-import { Slider } from "./ui/slider";
-import { Progress } from "./ui/progress";
-import { Checkbox } from "./ui/checkbox";
-import { Alert, AlertDescription } from "./ui/alert";
-import { AlertCircle } from "lucide-react";
+} from "../components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Alert, AlertDescription } from "../components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { Badge } from "../components/ui/badge";
+import { Textarea } from "../components/ui/textarea";
+import {
+  ArrowLeft,
+  User,
+  Bell,
+  Shield,
+  Download,
+  Trash2,
+  AlertTriangle,
+  CheckCircle,
+  Camera,
+  Edit,
+  Settings as SettingsIcon,
+  CreditCard,
+  Globe,
+} from "lucide-react";
+import { useToast } from "../components/ui/use-toast";
 
-interface QuestionnaireProps {
-  onComplete?: (categories: CategorySuggestion[]) => void;
+interface SettingsProps {
+  onBack?: () => void;
 }
 
-interface CategorySuggestion {
-  name: string;
-  icon: string;
-  color: string;
-  budgetSuggestion: number;
-}
-
-const InitialQuestionnaire = ({
-  onComplete = () => {},
-}: QuestionnaireProps) => {
-  const [step, setStep] = useState(1);
-  const [formData, setFormData] = useState({
-    income: "",
-    housingExpense: "",
-    transportationExpense: "",
-    foodExpense: "",
-    spendingPriorities: [] as string[],
-    savingGoals: "",
-    financialGoals: [] as string[],
-    shoppingFrequency: "weekly",
-    diningOutFrequency: "weekly",
+const Settings = ({ onBack = () => {} }: SettingsProps) => {
+  const [profile, setProfile] = useState({
+    name: "John Doe",
+    email: "john.doe@example.com",
+    phone: "+1 (555) 123-4567",
+    bio: "Financial enthusiast focused on smart budgeting and investment strategies.",
+    location: "New York, NY",
+    website: "https://johndoe.com",
+    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
+    currency: "USD",
+    timezone: "America/New_York",
+    dateFormat: "MM/DD/YYYY",
+    language: "en",
+    theme: "system",
   });
-  const [isReturningUser, setIsReturningUser] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
-  // Load data from localStorage on component mount
-  useEffect(() => {
-    const savedData = localStorage.getItem("questionnaireData");
-    const savedCategories = localStorage.getItem("userCategories");
+  const [notifications, setNotifications] = useState({
+    budgetAlerts: true,
+    weeklyReports: true,
+    monthlyReports: true,
+    emailNotifications: true,
+    pushNotifications: false,
+    budgetThreshold: 80,
+  });
 
-    if (savedData) {
-      setFormData(JSON.parse(savedData));
-      setIsReturningUser(true);
-    }
+  const [privacy, setPrivacy] = useState({
+    dataSharing: false,
+    analytics: true,
+    marketingEmails: false,
+  });
 
-    // If user has completed questionnaire before, skip to results
-    if (savedCategories && savedData) {
-      const categories = JSON.parse(savedCategories);
-      onComplete(categories);
-    }
-  }, [onComplete]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { toast } = useToast();
 
-  const totalSteps = 5;
-  const progress = (step / totalSteps) * 100;
-
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleCheckboxChange = (value: string, checked: boolean) => {
-    if (checked) {
-      setFormData({
-        ...formData,
-        spendingPriorities: [...formData.spendingPriorities, value],
-      });
-    } else {
-      setFormData({
-        ...formData,
-        spendingPriorities: formData.spendingPriorities.filter(
-          (item) => item !== value,
-        ),
-      });
-    }
-  };
-
-  const handleFinancialGoalChange = (value: string, checked: boolean) => {
-    if (checked) {
-      setFormData({
-        ...formData,
-        financialGoals: [...formData.financialGoals, value],
-      });
-    } else {
-      setFormData({
-        ...formData,
-        financialGoals: formData.financialGoals.filter(
-          (item) => item !== value,
-        ),
-      });
-    }
-  };
-
-  const validateCurrentStep = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-
-    switch (step) {
-      case 1:
-        if (!formData.income || parseFloat(formData.income) <= 0) {
-          newErrors.income = "Please enter a valid monthly income";
-        }
-        break;
-      case 2:
-        if (
-          !formData.housingExpense ||
-          parseFloat(formData.housingExpense) < 0
-        ) {
-          newErrors.housingExpense =
-            "Please enter your housing expense (0 if none)";
-        }
-        if (
-          !formData.transportationExpense ||
-          parseFloat(formData.transportationExpense) < 0
-        ) {
-          newErrors.transportationExpense =
-            "Please enter your transportation expense (0 if none)";
-        }
-        if (!formData.foodExpense || parseFloat(formData.foodExpense) < 0) {
-          newErrors.foodExpense = "Please enter your food expense (0 if none)";
-        }
-        break;
-      case 3:
-        if (formData.spendingPriorities.length === 0) {
-          newErrors.spendingPriorities =
-            "Please select at least one spending priority";
-        }
-        break;
-      case 4:
-        if (formData.financialGoals.length === 0) {
-          newErrors.financialGoals =
-            "Please select at least one financial goal";
-        }
-        if (!formData.savingGoals || parseFloat(formData.savingGoals) < 0) {
-          newErrors.savingGoals =
-            "Please enter your monthly saving target (0 if none)";
-        }
-        break;
-      case 5:
-        if (!formData.shoppingFrequency) {
-          newErrors.shoppingFrequency = "Please select your shopping frequency";
-        }
-        if (!formData.diningOutFrequency) {
-          newErrors.diningOutFrequency =
-            "Please select your dining out frequency";
-        }
-        break;
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const nextStep = () => {
-    if (!validateCurrentStep()) {
-      return;
-    }
-
-    // Clear errors when validation passes
-    setErrors({});
-
-    // Save current form data to localStorage
-    localStorage.setItem("questionnaireData", JSON.stringify(formData));
-
-    if (step < totalSteps) {
-      setStep(step + 1);
-    } else {
-      // Generate category suggestions based on questionnaire answers
-      const suggestedCategories = generateCategorySuggestions(formData);
-
-      // Save generated categories to localStorage
-      localStorage.setItem(
-        "userCategories",
-        JSON.stringify(suggestedCategories),
-      );
-      localStorage.setItem("questionnaireCompleted", "true");
-
-      onComplete(suggestedCategories);
-    }
-  };
-
-  const prevStep = () => {
-    if (step > 1) {
-      setStep(step - 1);
-    }
-  };
-
-  const generateCategorySuggestions = (
-    data: typeof formData,
-  ): CategorySuggestion[] => {
-    const income = parseFloat(data.income) || 0;
-    const suggestions: CategorySuggestion[] = [];
-
-    // Essential categories based on user input
-    if (parseFloat(data.housingExpense) > 0) {
-      suggestions.push({
-        name: "Rent/Mortgage",
-        icon: "🏠",
-        color: "#4CAF50",
-        budgetSuggestion: parseFloat(data.housingExpense),
-      });
-    }
-
-    if (parseFloat(data.transportationExpense) > 0) {
-      suggestions.push({
-        name: "Transportation",
-        icon: "🚗",
-        color: "#2196F3",
-        budgetSuggestion: parseFloat(data.transportationExpense),
-      });
-      // Add fuel category if transportation is significant
-      if (parseFloat(data.transportationExpense) > income * 0.1) {
-        suggestions.push({
-          name: "Gas/Fuel",
-          icon: "⛽",
-          color: "#FF9800",
-          budgetSuggestion: parseFloat(data.transportationExpense) * 0.4,
-        });
-      }
-    }
-
-    if (parseFloat(data.foodExpense) > 0) {
-      suggestions.push({
-        name: "Groceries",
-        icon: "🛒",
-        color: "#8BC34A",
-        budgetSuggestion: parseFloat(data.foodExpense),
-      });
-    }
-
-    // Dining out category based on frequency and food budget
-    if (
-      data.diningOutFrequency === "daily" ||
-      data.diningOutFrequency === "weekly"
-    ) {
-      const diningBudget =
-        data.diningOutFrequency === "daily" ? income * 0.15 : income * 0.08;
-      suggestions.push({
-        name: "Restaurants & Dining Out",
-        icon: "🍽️",
-        color: "#FF5722",
-        budgetSuggestion: diningBudget,
-      });
-    }
-
-    // Utilities - always include for adults with income
-    if (income > 0) {
-      suggestions.push({
-        name: "Utilities",
-        icon: "⚡",
-        color: "#FFC107",
-        budgetSuggestion: income * 0.08,
-      });
-
-      suggestions.push({
-        name: "Mobile Phone",
-        icon: "📱",
-        color: "#00BCD4",
-        budgetSuggestion: income * 0.03,
-      });
-    }
-
-    // Savings based on user's saving goals
-    if (parseFloat(data.savingGoals) > 0) {
-      suggestions.push({
-        name: "Savings",
-        icon: "💰",
-        color: "#607D8B",
-        budgetSuggestion: parseFloat(data.savingGoals),
-      });
-    } else if (income > 0) {
-      // Default savings if no specific goal
-      suggestions.push({
-        name: "Savings",
-        icon: "💰",
-        color: "#607D8B",
-        budgetSuggestion: income * 0.15,
-      });
-    }
-
-    // Dynamic categories based on spending priorities
-    if (data.spendingPriorities.includes("travel")) {
-      suggestions.push({
-        name: "Travel & Vacation",
-        icon: "✈️",
-        color: "#00BCD4",
-        budgetSuggestion: income * 0.08,
-      });
-    }
-
-    if (data.spendingPriorities.includes("health")) {
-      suggestions.push({
-        name: "Health & Fitness",
-        icon: "💪",
-        color: "#8BC34A",
-        budgetSuggestion: income * 0.05,
-      });
-      suggestions.push({
-        name: "Medical Expenses",
-        icon: "🏥",
-        color: "#E91E63",
-        budgetSuggestion: income * 0.04,
-      });
-    }
-
-    if (data.spendingPriorities.includes("shopping")) {
-      const shoppingBudget =
-        data.shoppingFrequency === "daily"
-          ? income * 0.12
-          : data.shoppingFrequency === "weekly"
-            ? income * 0.08
-            : income * 0.05;
-      suggestions.push({
-        name: "Shopping & Retail",
-        icon: "🛍️",
-        color: "#E91E63",
-        budgetSuggestion: shoppingBudget,
-      });
-    }
-
-    if (data.spendingPriorities.includes("entertainment")) {
-      suggestions.push({
-        name: "Entertainment",
-        icon: "🎬",
-        color: "#9C27B0",
-        budgetSuggestion: income * 0.06,
-      });
-      suggestions.push({
-        name: "Streaming Services",
-        icon: "📺",
-        color: "#673AB7",
-        budgetSuggestion: income * 0.02,
-      });
-    }
-
-    // Financial goal-based categories
-    if (data.financialGoals.includes("emergency")) {
-      suggestions.push({
-        name: "Emergency Fund",
-        icon: "🚨",
-        color: "#FF6B6B",
-        budgetSuggestion: income * 0.1,
-      });
-    }
-
-    if (data.financialGoals.includes("debt")) {
-      suggestions.push({
-        name: "Debt Payments",
-        icon: "💳",
-        color: "#FF4444",
-        budgetSuggestion: income * 0.15,
-      });
-    }
-
-    if (data.financialGoals.includes("retirement")) {
-      suggestions.push({
-        name: "Retirement Savings",
-        icon: "🏖️",
-        color: "#4ECDC4",
-        budgetSuggestion: income * 0.1,
-      });
-    }
-
-    // Miscellaneous category for unexpected expenses
-    suggestions.push({
-      name: "Miscellaneous",
-      icon: "📦",
-      color: "#95A5A6",
-      budgetSuggestion: income * 0.05,
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsSaving(false);
+    toast({
+      title: "Profile Updated",
+      description: "Your profile settings have been saved successfully.",
     });
-
-    return suggestions;
   };
 
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CardHeader className="px-4 md:px-6">
-              <CardTitle className="text-lg md:text-xl">
-                Income Information
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Let's start with your monthly income
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 px-4 md:px-6">
-              <div className="space-y-2">
-                <Label htmlFor="income">Monthly Income After Taxes *</Label>
-                <Input
-                  id="income"
-                  name="income"
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.income}
-                  onChange={handleInputChange}
-                  className={errors.income ? "border-red-500" : ""}
-                  required
-                />
-                {errors.income && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{errors.income}</AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </CardContent>
-          </motion.div>
-        );
+  const handleSaveNotifications = async () => {
+    setIsSaving(true);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    setIsSaving(false);
+    toast({
+      title: "Notification Settings Updated",
+      description: "Your notification preferences have been saved.",
+    });
+  };
 
-      case 2:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CardHeader className="px-4 md:px-6">
-              <CardTitle className="text-lg md:text-xl">
-                Regular Expenses
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Tell us about your major monthly expenses
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 px-4 md:px-6">
-              <div className="space-y-2">
-                <Label htmlFor="housingExpense">
-                  Housing (Rent/Mortgage) *
-                </Label>
-                <Input
-                  id="housingExpense"
-                  name="housingExpense"
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.housingExpense}
-                  onChange={handleInputChange}
-                  className={errors.housingExpense ? "border-red-500" : ""}
-                  required
-                />
-                {errors.housingExpense && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{errors.housingExpense}</AlertDescription>
-                  </Alert>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="transportationExpense">Transportation *</Label>
-                <Input
-                  id="transportationExpense"
-                  name="transportationExpense"
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.transportationExpense}
-                  onChange={handleInputChange}
-                  className={
-                    errors.transportationExpense ? "border-red-500" : ""
-                  }
-                  required
-                />
-                {errors.transportationExpense && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      {errors.transportationExpense}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="foodExpense">Food & Groceries *</Label>
-                <Input
-                  id="foodExpense"
-                  name="foodExpense"
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.foodExpense}
-                  onChange={handleInputChange}
-                  className={errors.foodExpense ? "border-red-500" : ""}
-                  required
-                />
-                {errors.foodExpense && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{errors.foodExpense}</AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </CardContent>
-          </motion.div>
-        );
+  const handleExportData = () => {
+    // Simulate data export
+    const data = {
+      profile,
+      expenses: [],
+      budgets: [],
+      exportDate: new Date().toISOString(),
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "finance-data-export.json";
+    a.click();
+    URL.revokeObjectURL(url);
 
-      case 3:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CardHeader className="px-4 md:px-6">
-              <CardTitle className="text-lg md:text-xl">
-                Spending Priorities
-              </CardTitle>
-              <CardDescription className="text-sm">
-                What matters most to you when spending money? *
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 px-4 md:px-6">
-              {errors.spendingPriorities && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    {errors.spendingPriorities}
-                  </AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="travel"
-                    checked={formData.spendingPriorities.includes("travel")}
-                    onCheckedChange={(checked) =>
-                      handleCheckboxChange("travel", checked === true)
-                    }
-                  />
-                  <Label htmlFor="travel">Travel & Experiences</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="dining"
-                    checked={formData.spendingPriorities.includes("dining")}
-                    onCheckedChange={(checked) =>
-                      handleCheckboxChange("dining", checked === true)
-                    }
-                  />
-                  <Label htmlFor="dining">Dining Out</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="shopping"
-                    checked={formData.spendingPriorities.includes("shopping")}
-                    onCheckedChange={(checked) =>
-                      handleCheckboxChange("shopping", checked === true)
-                    }
-                  />
-                  <Label htmlFor="shopping">Shopping & Retail</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="health"
-                    checked={formData.spendingPriorities.includes("health")}
-                    onCheckedChange={(checked) =>
-                      handleCheckboxChange("health", checked === true)
-                    }
-                  />
-                  <Label htmlFor="health">Health & Wellness</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="entertainment"
-                    checked={formData.spendingPriorities.includes(
-                      "entertainment",
-                    )}
-                    onCheckedChange={(checked) =>
-                      handleCheckboxChange("entertainment", checked === true)
-                    }
-                  />
-                  <Label htmlFor="entertainment">Entertainment</Label>
-                </div>
-              </div>
-            </CardContent>
-          </motion.div>
-        );
+    toast({
+      title: "Data Exported",
+      description: "Your data has been exported successfully.",
+    });
+  };
 
-      case 4:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CardHeader className="px-4 md:px-6">
-              <CardTitle className="text-lg md:text-xl">
-                Financial Goals
-              </CardTitle>
-              <CardDescription className="text-sm">
-                What are your financial goals? *
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 px-4 md:px-6">
-              {errors.financialGoals && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{errors.financialGoals}</AlertDescription>
-                </Alert>
-              )}
-              <div className="space-y-2">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="emergency"
-                    checked={formData.financialGoals.includes("emergency")}
-                    onCheckedChange={(checked) =>
-                      handleFinancialGoalChange("emergency", checked === true)
-                    }
-                  />
-                  <Label htmlFor="emergency">Build Emergency Fund</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="debt"
-                    checked={formData.financialGoals.includes("debt")}
-                    onCheckedChange={(checked) =>
-                      handleFinancialGoalChange("debt", checked === true)
-                    }
-                  />
-                  <Label htmlFor="debt">Pay Off Debt</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="retirement"
-                    checked={formData.financialGoals.includes("retirement")}
-                    onCheckedChange={(checked) =>
-                      handleFinancialGoalChange("retirement", checked === true)
-                    }
-                  />
-                  <Label htmlFor="retirement">Save for Retirement</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="home"
-                    checked={formData.financialGoals.includes("home")}
-                    onCheckedChange={(checked) =>
-                      handleFinancialGoalChange("home", checked === true)
-                    }
-                  />
-                  <Label htmlFor="home">Save for Home Purchase</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="vacation"
-                    checked={formData.financialGoals.includes("vacation")}
-                    onCheckedChange={(checked) =>
-                      handleFinancialGoalChange("vacation", checked === true)
-                    }
-                  />
-                  <Label htmlFor="vacation">Save for Vacation</Label>
-                </div>
-              </div>
-              <div className="space-y-2 pt-4">
-                <Label htmlFor="savingGoals">Monthly Saving Target *</Label>
-                <Input
-                  id="savingGoals"
-                  name="savingGoals"
-                  type="number"
-                  placeholder="0.00"
-                  value={formData.savingGoals}
-                  onChange={handleInputChange}
-                  className={errors.savingGoals ? "border-red-500" : ""}
-                  required
-                />
-                {errors.savingGoals && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>{errors.savingGoals}</AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </CardContent>
-          </motion.div>
-        );
-
-      case 5:
-        return (
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3 }}
-          >
-            <CardHeader className="px-4 md:px-6">
-              <CardTitle className="text-lg md:text-xl">
-                Spending Habits
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Tell us about your regular spending habits
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 px-4 md:px-6">
-              <div className="space-y-2">
-                <Label htmlFor="shoppingFrequency">
-                  How often do you shop for non-essentials? *
-                </Label>
-                <Select
-                  value={formData.shoppingFrequency}
-                  onValueChange={(value) =>
-                    handleSelectChange("shoppingFrequency", value)
-                  }
-                  required
-                >
-                  <SelectTrigger
-                    className={errors.shoppingFrequency ? "border-red-500" : ""}
-                  >
-                    <SelectValue placeholder="Select frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="rarely">Rarely</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.shoppingFrequency && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      {errors.shoppingFrequency}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="diningOutFrequency">
-                  How often do you dine out? *
-                </Label>
-                <Select
-                  value={formData.diningOutFrequency}
-                  onValueChange={(value) =>
-                    handleSelectChange("diningOutFrequency", value)
-                  }
-                  required
-                >
-                  <SelectTrigger
-                    className={
-                      errors.diningOutFrequency ? "border-red-500" : ""
-                    }
-                  >
-                    <SelectValue placeholder="Select frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="daily">Daily</SelectItem>
-                    <SelectItem value="weekly">Weekly</SelectItem>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="rarely">Rarely</SelectItem>
-                  </SelectContent>
-                </Select>
-                {errors.diningOutFrequency && (
-                  <Alert variant="destructive">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      {errors.diningOutFrequency}
-                    </AlertDescription>
-                  </Alert>
-                )}
-              </div>
-            </CardContent>
-          </motion.div>
-        );
-
-      default:
-        return null;
-    }
+  const handleDeleteAccount = async () => {
+    // Simulate account deletion
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsDeleteDialogOpen(false);
+    toast({
+      title: "Account Deletion Initiated",
+      description:
+        "Your account deletion request has been submitted. You will receive a confirmation email.",
+      variant: "destructive",
+    });
   };
 
   const resetQuestionnaire = () => {
     localStorage.removeItem("questionnaireData");
     localStorage.removeItem("userCategories");
     localStorage.removeItem("questionnaireCompleted");
-    setIsReturningUser(false);
-    setStep(1);
-    setFormData({
-      income: "",
-      housingExpense: "",
-      transportationExpense: "",
-      foodExpense: "",
-      spendingPriorities: [] as string[],
-      savingGoals: "",
-      financialGoals: [] as string[],
-      shoppingFrequency: "weekly",
-      diningOutFrequency: "weekly",
+    toast({
+      title: "Questionnaire Reset",
+      description:
+        "Your questionnaire data has been cleared. You'll be prompted to complete it again on your next visit.",
     });
   };
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-background p-4">
-      <Card className="w-full max-w-lg shadow-lg">
-        <div className="px-4 md:px-6 pt-4 md:pt-6">
-          <div className="flex justify-between items-center mb-2">
-            <Progress value={progress} className="h-2 flex-1" />
-            {isReturningUser && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetQuestionnaire}
-                className="ml-2 text-xs"
-              >
-                Reset
-              </Button>
-            )}
-          </div>
-          <div className="text-right text-sm text-muted-foreground mt-1">
-            Step {step} of {totalSteps}
-            {isReturningUser && (
-              <span className="text-blue-600 ml-2">(Returning User)</span>
-            )}
-          </div>
-        </div>
+    <div className="bg-background p-3 md:p-6 rounded-lg w-full max-w-4xl mx-auto">
+      <div className="flex items-center gap-4 mb-6">
+        <Button variant="ghost" size="icon" onClick={onBack}>
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-xl md:text-2xl font-bold">Profile & Settings</h1>
+      </div>
 
-        {renderStep()}
+      <Tabs defaultValue="profile" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 md:grid-cols-6 mb-6">
+          <TabsTrigger value="profile" className="text-xs md:text-sm">
+            <User className="mr-1 h-4 w-4" />
+            Profile
+          </TabsTrigger>
+          <TabsTrigger value="account" className="text-xs md:text-sm">
+            <SettingsIcon className="mr-1 h-4 w-4" />
+            Account
+          </TabsTrigger>
+          <TabsTrigger value="preferences" className="text-xs md:text-sm">
+            <Globe className="mr-1 h-4 w-4" />
+            Preferences
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="text-xs md:text-sm">
+            <Bell className="mr-1 h-4 w-4" />
+            Notifications
+          </TabsTrigger>
+          <TabsTrigger value="privacy" className="text-xs md:text-sm">
+            <Shield className="mr-1 h-4 w-4" />
+            Privacy
+          </TabsTrigger>
+          <TabsTrigger value="data" className="text-xs md:text-sm">
+            <Download className="mr-1 h-4 w-4" />
+            Data
+          </TabsTrigger>
+        </TabsList>
 
-        <CardFooter className="flex justify-between p-4 md:p-6">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            disabled={step === 1}
-            className="px-4 md:px-6"
-          >
-            Back
-          </Button>
-          <Button onClick={nextStep} className="px-4 md:px-6">
-            {step === totalSteps ? "Complete" : "Next"}
-          </Button>
-        </CardFooter>
-      </Card>
+        {/* Profile Information */}
+        <TabsContent value="profile">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Profile Information</CardTitle>
+                <CardDescription>
+                  Manage your personal profile and public information
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {/* Avatar Section */}
+                <div className="flex items-center space-x-4">
+                  <Avatar className="h-20 w-20">
+                    <AvatarImage src={profile.avatar} alt={profile.name} />
+                    <AvatarFallback className="text-lg">
+                      {profile.name
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="space-y-2">
+                    <Button variant="outline" size="sm">
+                      <Camera className="mr-2 h-4 w-4" />
+                      Change Photo
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      JPG, GIF or PNG. Max size 2MB.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Basic Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Full Name</Label>
+                    <Input
+                      id="name"
+                      value={profile.name}
+                      onChange={(e) =>
+                        setProfile({ ...profile, name: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Email Address</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={profile.email}
+                      onChange={(e) =>
+                        setProfile({ ...profile, email: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="phone">Phone Number</Label>
+                    <Input
+                      id="phone"
+                      value={profile.phone}
+                      onChange={(e) =>
+                        setProfile({ ...profile, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="location">Location</Label>
+                    <Input
+                      id="location"
+                      value={profile.location}
+                      onChange={(e) =>
+                        setProfile({ ...profile, location: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="website">Website</Label>
+                  <Input
+                    id="website"
+                    type="url"
+                    value={profile.website}
+                    onChange={(e) =>
+                      setProfile({ ...profile, website: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="bio">Bio</Label>
+                  <Textarea
+                    id="bio"
+                    placeholder="Tell us about yourself..."
+                    value={profile.bio}
+                    onChange={(e) =>
+                      setProfile({ ...profile, bio: e.target.value })
+                    }
+                    className="min-h-[100px]"
+                  />
+                  <p className="text-sm text-muted-foreground">
+                    {profile.bio.length}/500 characters
+                  </p>
+                </div>
+
+                <div className="pt-4">
+                  <Button onClick={handleSaveProfile} disabled={isSaving}>
+                    {isSaving ? "Saving..." : "Save Profile"}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Account Status */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Account Status</CardTitle>
+                <CardDescription>
+                  Your account information and membership details
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Account Type</p>
+                    <p className="text-sm text-muted-foreground">Free Plan</p>
+                  </div>
+                  <Badge variant="secondary">Free</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Member Since</p>
+                    <p className="text-sm text-muted-foreground">
+                      January 2024
+                    </p>
+                  </div>
+                  <Badge variant="outline">3 months</Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium">Email Verified</p>
+                    <p className="text-sm text-muted-foreground">
+                      Your email is verified
+                    </p>
+                  </div>
+                  <Badge variant="default">
+                    <CheckCircle className="mr-1 h-3 w-3" />
+                    Verified
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Account Settings */}
+        <TabsContent value="account">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Account Security</CardTitle>
+                <CardDescription>
+                  Manage your account security and authentication
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Password</p>
+                      <p className="text-sm text-muted-foreground">
+                        Last changed 2 months ago
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      <Edit className="mr-2 h-4 w-4" />
+                      Change
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Two-Factor Authentication</p>
+                      <p className="text-sm text-muted-foreground">
+                        Add an extra layer of security
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Enable
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Login Sessions</p>
+                      <p className="text-sm text-muted-foreground">
+                        Manage your active sessions
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      View All
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Connected Accounts</CardTitle>
+                <CardDescription>
+                  Link your accounts for easier data import
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
+                        <CreditCard className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-medium">Bank Account</p>
+                        <p className="text-sm text-muted-foreground">
+                          Connect your bank for automatic imports
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Connect
+                    </Button>
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center">
+                        <Download className="h-4 w-4 text-white" />
+                      </div>
+                      <div>
+                        <p className="font-medium">CSV Import</p>
+                        <p className="text-sm text-muted-foreground">
+                          Import data from spreadsheets
+                        </p>
+                      </div>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Configure
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+
+        {/* Preferences */}
+        <TabsContent value="preferences">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">App Preferences</CardTitle>
+              <CardDescription>
+                Customize your app experience and regional settings
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="language">Language</Label>
+                  <Select
+                    value={profile.language}
+                    onValueChange={(value) =>
+                      setProfile({ ...profile, language: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="en">English</SelectItem>
+                      <SelectItem value="es">Español</SelectItem>
+                      <SelectItem value="fr">Français</SelectItem>
+                      <SelectItem value="de">Deutsch</SelectItem>
+                      <SelectItem value="it">Italiano</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="theme">Theme</Label>
+                  <Select
+                    value={profile.theme}
+                    onValueChange={(value) =>
+                      setProfile({ ...profile, theme: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="light">Light</SelectItem>
+                      <SelectItem value="dark">Dark</SelectItem>
+                      <SelectItem value="system">System</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="currency">Currency</Label>
+                  <Select
+                    value={profile.currency}
+                    onValueChange={(value) =>
+                      setProfile({ ...profile, currency: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="USD">USD ($)</SelectItem>
+                      <SelectItem value="EUR">EUR (€)</SelectItem>
+                      <SelectItem value="GBP">GBP (£)</SelectItem>
+                      <SelectItem value="CAD">CAD (C$)</SelectItem>
+                      <SelectItem value="AUD">AUD (A$)</SelectItem>
+                      <SelectItem value="JPY">JPY (¥)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="timezone">Timezone</Label>
+                  <Select
+                    value={profile.timezone}
+                    onValueChange={(value) =>
+                      setProfile({ ...profile, timezone: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="America/New_York">
+                        Eastern Time
+                      </SelectItem>
+                      <SelectItem value="America/Chicago">
+                        Central Time
+                      </SelectItem>
+                      <SelectItem value="America/Denver">
+                        Mountain Time
+                      </SelectItem>
+                      <SelectItem value="America/Los_Angeles">
+                        Pacific Time
+                      </SelectItem>
+                      <SelectItem value="Europe/London">London</SelectItem>
+                      <SelectItem value="Europe/Paris">Paris</SelectItem>
+                      <SelectItem value="Asia/Tokyo">Tokyo</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="dateFormat">Date Format</Label>
+                  <Select
+                    value={profile.dateFormat}
+                    onValueChange={(value) =>
+                      setProfile({ ...profile, dateFormat: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                      <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                      <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="pt-4">
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Save Preferences"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Notification Settings */}
+        <TabsContent value="notifications">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Notification Settings</CardTitle>
+              <CardDescription>
+                Control how and when you receive notifications
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Budget Alerts</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Get notified when approaching budget limits
+                    </p>
+                  </div>
+                  <Switch
+                    checked={notifications.budgetAlerts}
+                    onCheckedChange={(checked) =>
+                      setNotifications({
+                        ...notifications,
+                        budgetAlerts: checked,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Weekly Reports</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive weekly spending summaries
+                    </p>
+                  </div>
+                  <Switch
+                    checked={notifications.weeklyReports}
+                    onCheckedChange={(checked) =>
+                      setNotifications({
+                        ...notifications,
+                        weeklyReports: checked,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Monthly Reports</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive monthly financial insights
+                    </p>
+                  </div>
+                  <Switch
+                    checked={notifications.monthlyReports}
+                    onCheckedChange={(checked) =>
+                      setNotifications({
+                        ...notifications,
+                        monthlyReports: checked,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Email Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive notifications via email
+                    </p>
+                  </div>
+                  <Switch
+                    checked={notifications.emailNotifications}
+                    onCheckedChange={(checked) =>
+                      setNotifications({
+                        ...notifications,
+                        emailNotifications: checked,
+                      })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Push Notifications</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive browser push notifications
+                    </p>
+                  </div>
+                  <Switch
+                    checked={notifications.pushNotifications}
+                    onCheckedChange={(checked) =>
+                      setNotifications({
+                        ...notifications,
+                        pushNotifications: checked,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Budget Alert Threshold</Label>
+                <div className="flex items-center space-x-2">
+                  <Input
+                    type="number"
+                    min="50"
+                    max="95"
+                    value={notifications.budgetThreshold}
+                    onChange={(e) =>
+                      setNotifications({
+                        ...notifications,
+                        budgetThreshold: parseInt(e.target.value),
+                      })
+                    }
+                    className="w-20"
+                  />
+                  <span className="text-sm text-muted-foreground">%</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Get alerted when you've spent this percentage of your budget
+                </p>
+              </div>
+
+              <div className="pt-4">
+                <Button onClick={handleSaveNotifications} disabled={isSaving}>
+                  {isSaving ? "Saving..." : "Save Notifications"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Privacy Settings */}
+        <TabsContent value="privacy">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Privacy Settings</CardTitle>
+              <CardDescription>
+                Control your data privacy and sharing preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Data Sharing</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Share anonymized data to improve our services
+                    </p>
+                  </div>
+                  <Switch
+                    checked={privacy.dataSharing}
+                    onCheckedChange={(checked) =>
+                      setPrivacy({ ...privacy, dataSharing: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Analytics</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Help us improve by sharing usage analytics
+                    </p>
+                  </div>
+                  <Switch
+                    checked={privacy.analytics}
+                    onCheckedChange={(checked) =>
+                      setPrivacy({ ...privacy, analytics: checked })
+                    }
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label>Marketing Emails</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive emails about new features and tips
+                    </p>
+                  </div>
+                  <Switch
+                    checked={privacy.marketingEmails}
+                    onCheckedChange={(checked) =>
+                      setPrivacy({ ...privacy, marketingEmails: checked })
+                    }
+                  />
+                </div>
+              </div>
+
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Your financial data is always encrypted and never shared with
+                  third parties without your explicit consent.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Data Management */}
+        <TabsContent value="data">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Data Export</CardTitle>
+                <CardDescription>
+                  Download your data for backup or migration purposes
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Export all your financial data including expenses, budgets,
+                    and settings in JSON format.
+                  </p>
+                  <Button onClick={handleExportData}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Data
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Reset Options</CardTitle>
+                <CardDescription>
+                  Reset specific parts of your data
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">Reset Questionnaire</p>
+                      <p className="text-sm text-muted-foreground">
+                        Clear questionnaire data and retake it
+                      </p>
+                    </div>
+                    <Button variant="outline" onClick={resetQuestionnaire}>
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-red-200">
+              <CardHeader>
+                <CardTitle className="text-lg text-red-600">
+                  Danger Zone
+                </CardTitle>
+                <CardDescription>
+                  Irreversible actions that will permanently affect your account
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <Alert variant="destructive">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      Deleting your account will permanently remove all your
+                      data. This action cannot be undone.
+                    </AlertDescription>
+                  </Alert>
+                  <Dialog
+                    open={isDeleteDialogOpen}
+                    onOpenChange={setIsDeleteDialogOpen}
+                  >
+                    <DialogTrigger asChild>
+                      <Button variant="destructive">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Account
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Delete Account</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to delete your account? This
+                          will permanently remove all your data including
+                          expenses, budgets, and settings. This action cannot be
+                          undone.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <Button
+                          variant="outline"
+                          onClick={() => setIsDeleteDialogOpen(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          variant="destructive"
+                          onClick={handleDeleteAccount}
+                        >
+                          Delete Account
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
 
-export default InitialQuestionnaire;
+export default Settings;

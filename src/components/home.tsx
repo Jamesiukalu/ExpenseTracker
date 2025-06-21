@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
-import { Card, CardContent } from "./ui/card";
-import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
-import { Button } from "./ui/button";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { Card, CardContent } from "../components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
+import { Button } from "../components/ui/button";
 import {
   Bell,
   Settings,
@@ -15,7 +15,7 @@ import {
   Upload,
   Download,
 } from "lucide-react";
-import { useToast } from "./ui/use-toast";
+import { useToast } from "../components/ui/use-toast";
 import ExpenseTracker from "./ExpenseTracker";
 import BudgetManager from "./BudgetManager";
 import ExpenseForm from "./ExpenseForm";
@@ -85,11 +85,7 @@ const HomePage = () => {
   };
 
   const handleNotificationClick = () => {
-    setHasUnreadNotifications(false);
-    toast({
-      title: "Notifications",
-      description: `You have ${notifications.length} notifications.`,
-    });
+    navigate("/notifications");
   };
 
   const handleImportData = () => {
