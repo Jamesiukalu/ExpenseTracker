@@ -1,11 +1,12 @@
-import React, { useState } from "react";
+// BudgetManager.tsx
+import React, { useState, useEffect } from "react";
 import {
   Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
 } from "./ui/card";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -18,449 +19,221 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Progress } from "./ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
-import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
 import {
   Dialog,
+  DialogTrigger,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogDescription,
+  DialogFooter,
   DialogClose,
 } from "./ui/dialog";
-import { AlertCircle, Plus, Settings } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "./ui/alert";
+import { AlertCircle, Plus, Edit2, Trash } from "lucide-react";
+import { useToast } from "./ui/use-toast";
+import api from "../api";
 
 interface Budget {
-  id: string;
+  _id: string;
   category: string;
-  amount: number;
-  spent: number;
   period: string;
+  budget: number;
+  spent: number;
+  color?: string;
 }
 
-const BudgetManager = () => {
-  const [budgets, setBudgets] = useState<Budget[]>([
-    {
-      id: "1",
-      category: "Groceries",
-      amount: 500,
-      spent: 320,
-      period: "Monthly",
-    },
-    {
-      id: "2",
-      category: "Streaming Services (Netflix, Spotify)",
-      amount: 50,
-      spent: 45,
-      period: "Monthly",
-    },
-    {
-      id: "3",
-      category: "Gas/Fuel",
-      amount: 200,
-      spent: 150,
-      period: "Monthly",
-    },
-    {
-      id: "4",
-      category: "Restaurants & Dining Out",
-      amount: 250,
-      spent: 220,
-      period: "Monthly",
-    },
-    {
-      id: "5",
-      category: "Rent/Mortgage",
-      amount: 1200,
-      spent: 1200,
-      period: "Monthly",
-    },
-    {
-      id: "6",
-      category: "Electricity",
-      amount: 150,
-      spent: 120,
-      period: "Monthly",
-    },
-  ]);
+export default function BudgetManager() {
+  const { toast } = useToast();
+  const [budgets, setBudgets] = useState<Budget[]>([]);
 
-  const [newBudget, setNewBudget] = useState({
-    category: "",
-    amount: "",
-    period: "Monthly",
-  });
-
+  // New budget form state
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("overview");
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
+  const [form, setForm] = useState({ category: "", amount: "", period: "Monthly" });
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const validateBudgetForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-
-    if (!newBudget.category.trim()) {
-      newErrors.category = "Category is required";
+  // Load budgets
+  const fetchBudgets = async () => {
+    try {
+      const res = await api.get("/budget");
+      setBudgets(res.data.data);
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     }
-    if (!newBudget.amount || parseFloat(newBudget.amount) <= 0) {
-      newErrors.amount = "Please enter a valid amount greater than 0";
+  };
+  useEffect(() => { fetchBudgets(); }, []);
+
+  // Validation
+  const validate = () => {
+    const e: Record<string, string> = {};
+    if (!form.category.trim()) e.category = "Category is required";
+    if (!form.amount || +form.amount <= 0) e.amount = "Amount must be greater than 0";
+    if (!form.period) e.period = "Period is required";
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
+  // Create or update
+  const handleSave = async () => {
+    if (!validate()) return;
+    try {
+      if (editingBudget) {
+        // Update existing
+        const res = await api.put(`/budget/update/${editingBudget._id}`, {
+          category: form.category,
+          period: form.period,
+          budget: +form.amount,
+        });
+        setBudgets(budgets.map(b => b._id === res.data.data._id ? res.data.data : b));
+        toast({ title: "Budget Updated", description: "Your budget has been updated." });
+      } else {
+        // Create new
+        const res = await api.post("/budget", {
+          category: form.category,
+          period: form.period,
+          budget: +form.amount,
+        });
+        setBudgets([res.data.data, ...budgets]);
+        toast({ title: "Budget Created", description: "New budget added." });
+      }
+      setDialogOpen(false);
+      setEditingBudget(null);
+      setForm({ category: "", amount: "", period: "Monthly" });
+      setErrors({});
+    } catch (err: any) {
+      toast({ title: editingBudget ? "Update Failed" : "Create Failed", description: err.message, variant: "destructive" });
     }
-    if (!newBudget.period) {
-      newErrors.period = "Please select a period";
+  };
+
+  // Delete handler (optional)
+  const handleDelete = async (id: string) => {
+    try {
+      await api.delete(`/budget/${id}`);
+      setBudgets(budgets.filter(b => b._id !== id));
+      toast({ title: "Budget Deleted", description: "Budget removed." });
+    } catch (err: any) {
+      toast({ title: "Delete Failed", description: err.message, variant: "destructive" });
     }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
 
-  const handleAddBudget = () => {
-    if (!validateBudgetForm()) {
-      return;
-    }
-
-    const budget: Budget = {
-      id: Date.now().toString(),
-      category: newBudget.category,
-      amount: parseFloat(newBudget.amount),
-      spent: 0,
-      period: newBudget.period,
-    };
-
-    setBudgets([...budgets, budget]);
-    setNewBudget({ category: "", amount: "", period: "Monthly" });
-    setErrors({});
-    setDialogOpen(false);
-  };
-
-  const calculatePercentage = (spent: number, total: number) => {
-    return Math.round((spent / total) * 100);
-  };
-
-  const getBudgetStatus = (spent: number, total: number) => {
-    const percentage = calculatePercentage(spent, total);
-    if (percentage >= 90) return "danger";
-    if (percentage >= 75) return "warning";
-    return "normal";
-  };
-
-  const getTotalBudget = () => {
-    return budgets.reduce((total, budget) => total + budget.amount, 0);
-  };
-
-  const getTotalSpent = () => {
-    return budgets.reduce((total, budget) => total + budget.spent, 0);
-  };
-
-  const getOverallPercentage = () => {
-    const total = getTotalBudget();
-    const spent = getTotalSpent();
-    return total > 0 ? Math.round((spent / total) * 100) : 0;
-  };
+  // Helpers
+  const calcPct = (spent: number, total: number) => Math.round((spent / total) * 100);
+  const status = (p: number) => p >= 90 ? "danger" : p >= 75 ? "warning" : "normal";
+  const totalBudget = budgets.reduce((sum, b) => sum + b.budget, 0);
+  const totalSpent = budgets.reduce((sum, b) => sum + b.spent, 0);
+  const overallPct = totalBudget > 0 ? calcPct(totalSpent, totalBudget) : 0;
 
   return (
-    <div className="bg-background p-3 md:p-6 rounded-lg w-full max-w-6xl mx-auto">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-xl md:text-2xl font-bold">Budget Manager</h1>
+    <div className="bg-background p-6 rounded-lg w-full max-w-6xl mx-auto">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Budget Manager</h1>
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" /> Add Budget
-            </Button>
+            <Button><Plus className="mr-2"/> {editingBudget ? "Edit Budget" : "Add Budget"}</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Create New Budget</DialogTitle>
+              <DialogTitle>{editingBudget ? "Edit Budget" : "Create New Budget"}</DialogTitle>
               <DialogDescription>
-                Set up a new budget category to track your spending.
+                {editingBudget ? "Update your budget category" : "Add a new category to track"}
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="category" className="text-right">
-                  Category *
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Input
-                    id="category"
-                    value={newBudget.category}
-                    onChange={(e) =>
-                      setNewBudget({ ...newBudget, category: e.target.value })
-                    }
-                    className={errors.category ? "border-red-500" : ""}
-                    placeholder="e.g., Groceries, Entertainment"
-                    required
-                  />
-                  {errors.category && (
-                    <p className="text-sm text-red-500">{errors.category}</p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="amount" className="text-right">
-                  Amount *
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Input
-                    id="amount"
-                    type="number"
-                    value={newBudget.amount}
-                    onChange={(e) =>
-                      setNewBudget({ ...newBudget, amount: e.target.value })
-                    }
-                    className={errors.amount ? "border-red-500" : ""}
-                    placeholder="0.00"
-                    required
-                  />
-                  {errors.amount && (
-                    <p className="text-sm text-red-500">{errors.amount}</p>
-                  )}
-                </div>
-              </div>
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="period" className="text-right">
-                  Period *
-                </Label>
-                <div className="col-span-3 space-y-2">
-                  <Select
-                    value={newBudget.period}
-                    onValueChange={(value) =>
-                      setNewBudget({ ...newBudget, period: value })
-                    }
-                    required
-                  >
-                    <SelectTrigger
-                      className={errors.period ? "border-red-500" : ""}
-                    >
-                      <SelectValue placeholder="Select period" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Weekly">Weekly</SelectItem>
-                      <SelectItem value="Monthly">Monthly</SelectItem>
-                      <SelectItem value="Quarterly">Quarterly</SelectItem>
-                      <SelectItem value="Yearly">Yearly</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {errors.period && (
-                    <p className="text-sm text-red-500">{errors.period}</p>
-                  )}
-                </div>
-              </div>
+              <Label>Category *</Label>
+              <Input
+                value={form.category}
+                onChange={e => setForm({ ...form, category: e.target.value })}
+                className={errors.category ? "border-red-500" : ""}
+              />
+              {errors.category && <p className="text-red-500 text-sm">{errors.category}</p>}
+
+              <Label>Amount *</Label>
+              <Input
+                type="number"
+                value={form.amount}
+                onChange={e => setForm({ ...form, amount: e.target.value })}
+                className={errors.amount ? "border-red-500" : ""}
+              />
+              {errors.amount && <p className="text-red-500 text-sm">{errors.amount}</p>}
+
+              <Label>Period *</Label>
+              <Select value={form.period} onValueChange={v => setForm({ ...form, period: v })}>
+                <SelectTrigger className={errors.period ? "border-red-500" : ""}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {['Weekly','Monthly','Quarterly','Yearly'].map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {errors.period && <p className="text-red-500 text-sm">{errors.period}</p>}
             </div>
             <DialogFooter>
               <DialogClose asChild>
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setErrors({});
-                    setNewBudget({
-                      category: "",
-                      amount: "",
-                      period: "Monthly",
-                    });
-                  }}
-                >
-                  Cancel
-                </Button>
+                <Button variant="outline">Cancel</Button>
               </DialogClose>
-              <Button onClick={handleAddBudget}>Create Budget</Button>
+              <Button onClick={handleSave}>{editingBudget ? "Update" : "Create"}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
-      <Tabs
-        defaultValue="overview"
-        className="w-full"
-        onValueChange={setActiveTab}
-      >
-        <TabsList className="grid w-full grid-cols-2 mb-4 md:mb-6">
-          <TabsTrigger value="overview" className="text-sm md:text-base">
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="details" className="text-sm md:text-base">
-            Budget Details
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="overview" className="space-y-4 md:space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg md:text-xl">
-                Overall Budget Status
-              </CardTitle>
-              <CardDescription className="text-sm">
-                You've spent ${getTotalSpent().toFixed(2)} of your $
-                {getTotalBudget().toFixed(2)} total budget.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                <div className="flex justify-between text-sm md:text-base">
-                  <span>Total Progress</span>
-                  <span>{getOverallPercentage()}%</span>
-                </div>
-                <Progress value={getOverallPercentage()} className="h-2" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-            {budgets.map((budget) => {
-              const percentage = calculatePercentage(
-                budget.spent,
-                budget.amount,
-              );
-              const status = getBudgetStatus(budget.spent, budget.amount);
-
-              return (
-                <Card
-                  key={budget.id}
-                  className={status === "danger" ? "border-red-500" : ""}
-                >
-                  <CardHeader className="pb-2">
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                      <CardTitle className="text-base md:text-lg leading-tight">
-                        {budget.category}
-                      </CardTitle>
-                      <span className="text-sm text-muted-foreground">
-                        {budget.period}
-                      </span>
-                    </div>
-                    <CardDescription className="flex flex-col sm:flex-row justify-between gap-1 text-sm">
-                      <span>Spent: ${budget.spent}</span>
-                      <span>Budget: ${budget.amount}</span>
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span>Progress</span>
-                        <span
-                          className={
-                            percentage >= 90 ? "text-red-500 font-medium" : ""
-                          }
-                        >
-                          {percentage}%
-                        </span>
-                      </div>
-                      <Progress
-                        value={percentage}
-                        className={`h-2 ${status === "danger" ? "bg-red-200" : status === "warning" ? "bg-yellow-200" : ""}`}
-                      />
-                    </div>
-                  </CardContent>
-                  {status === "danger" && (
-                    <CardFooter className="pt-0">
-                      <Alert variant="destructive" className="w-full py-2">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertTitle>Budget Alert</AlertTitle>
-                        <AlertDescription>
-                          You're approaching your budget limit for{" "}
-                          {budget.category}.
-                        </AlertDescription>
-                      </Alert>
-                    </CardFooter>
-                  )}
-                </Card>
-              );
-            })}
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle>Overall Budget Status</CardTitle>
+          <CardDescription>
+            You've spent ${totalSpent.toFixed(2)} of your ${totalBudget.toFixed(2)} total.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-between text-sm mb-2">
+            <span>Total Progress</span><span>{overallPct}%</span>
           </div>
-        </TabsContent>
+          <Progress value={overallPct} className="h-2" />
+        </CardContent>
+      </Card>
 
-        <TabsContent value="details">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <CardTitle className="text-lg md:text-xl">
-                    Budget Details
-                  </CardTitle>
-                  <CardDescription className="text-sm">
-                    View and adjust your budget allocations across categories.
-                  </CardDescription>
+      <div className="grid md:grid-cols-2 gap-4">
+        {budgets.map(b => {
+          const pct = calcPct(b.spent, b.budget);
+          const st = status(pct);
+          return (
+            <Card key={b._id} className={st === 'danger' ? 'border-red-500' : ''}>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>{b.category}</CardTitle>
+                  <div className="flex space-x-2">
+                    <Button variant="ghost" size="icon" onClick={() => {
+                      setEditingBudget(b);
+                      setForm({ category: b.category, amount: String(b.budget), period: b.period });
+                      setDialogOpen(true);
+                    }}><Edit2 /></Button>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(b._id)}><Trash /></Button>
+                  </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full sm:w-auto"
-                >
-                  <Settings className="h-4 w-4 mr-2" /> Manage Categories
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-md overflow-x-auto">
-                <table className="w-full min-w-[600px]">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-2 md:p-3 text-sm">Category</th>
-                      <th className="text-left p-2 md:p-3 text-sm">Period</th>
-                      <th className="text-left p-2 md:p-3 text-sm">Budget</th>
-                      <th className="text-left p-2 md:p-3 text-sm">Spent</th>
-                      <th className="text-left p-2 md:p-3 text-sm">
-                        Remaining
-                      </th>
-                      <th className="text-left p-2 md:p-3 text-sm">Status</th>
-                      <th className="text-left p-2 md:p-3 text-sm">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {budgets.map((budget) => {
-                      const remaining = budget.amount - budget.spent;
-                      const percentage = calculatePercentage(
-                        budget.spent,
-                        budget.amount,
-                      );
-                      const status = getBudgetStatus(
-                        budget.spent,
-                        budget.amount,
-                      );
-
-                      return (
-                        <tr key={budget.id} className="border-b">
-                          <td className="p-2 md:p-3 text-sm">
-                            <div className="max-w-[120px] truncate">
-                              {budget.category}
-                            </div>
-                          </td>
-                          <td className="p-2 md:p-3 text-sm">
-                            {budget.period}
-                          </td>
-                          <td className="p-2 md:p-3 text-sm">
-                            ${budget.amount}
-                          </td>
-                          <td className="p-2 md:p-3 text-sm">
-                            ${budget.spent}
-                          </td>
-                          <td className="p-2 md:p-3 text-sm">${remaining}</td>
-                          <td className="p-2 md:p-3">
-                            <div className="flex items-center gap-2">
-                              <Progress
-                                value={percentage}
-                                className={`h-2 w-12 md:w-16 ${status === "danger" ? "bg-red-200" : status === "warning" ? "bg-yellow-200" : ""}`}
-                              />
-                              <span className="text-xs md:text-sm">
-                                {percentage}%
-                              </span>
-                            </div>
-                          </td>
-                          <td className="p-2 md:p-3">
-                            <Button variant="ghost" size="sm">
-                              <Settings className="h-4 w-4" />
-                            </Button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                <CardDescription className="flex justify-between text-sm">
+                  <span>Spent: ${b.spent}</span>
+                  <span>Budget: ${b.budget}</span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between text-sm mb-2">
+                  <span>Progress</span><span className={pct >= 90 ? 'text-red-500' : ''}>{pct}%</span>
+                </div>
+                <Progress value={pct} className={`h-2 ${st==='danger'? 'bg-red-200' : st==='warning'?'bg-yellow-200':''}`} />
+              </CardContent>
+              {st === 'danger' && (
+                <CardFooter>
+                  <Alert variant="destructive">
+                    <AlertCircle /><AlertTitle>Budget Alert</AlertTitle>
+                    <AlertDescription>Approaching limit for {b.category}.</AlertDescription>
+                  </Alert>
+                </CardFooter>
+              )}
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
-};
-
-export default BudgetManager;
+}

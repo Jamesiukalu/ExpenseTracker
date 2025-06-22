@@ -22,9 +22,10 @@ import {
 } from "../../components/ui/form";
 import { Wallet, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useToast } from "../../components/ui/use-toast";
+import api from "../../api";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
+  username: z.string().min(5, "Please enter a valid Username"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
@@ -43,7 +44,7 @@ const Login = ({ onLogin }: LoginProps = {}) => {
   const form = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
-      email: "",
+      username: "",
       password: "",
     },
   });
@@ -51,11 +52,13 @@ const Login = ({ onLogin }: LoginProps = {}) => {
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      const res = await api.post("/auth/login", {
+        username: data.username,
+        password: data.password,
+      });
 
       // Mock authentication logic
-      if (data.email && data.password) {
+      if (data.username && data.password) {
         toast({
           title: "Login Successful",
           description: "Welcome back to FinanceTracker!",
@@ -64,13 +67,13 @@ const Login = ({ onLogin }: LoginProps = {}) => {
         if (onLogin) {
           onLogin();
         } else {
-          navigate("/");
+          navigate("/home");
         }
       }
     } catch (error) {
-      toast({
+     toast({
         title: "Login Failed",
-        description: "Please check your credentials and try again.",
+        description: error.response?.data || "Please check your credentials and try again.",
         variant: "destructive",
       });
     } finally {
@@ -96,14 +99,14 @@ const Login = ({ onLogin }: LoginProps = {}) => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>username</FormLabel>
                     <FormControl>
                       <Input
-                        type="email"
-                        placeholder="Enter your email"
+                        type="username"
+                        placeholder="Enter your username"
                         {...field}
                         disabled={isLoading}
                       />

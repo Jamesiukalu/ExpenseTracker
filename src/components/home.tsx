@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { Tabs, TabsContent } from "../components/ui/tabs";
 import { Card, CardContent } from "../components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 import { Button } from "../components/ui/button";
@@ -13,100 +13,157 @@ import {
   Wallet,
   HelpCircle,
   Upload,
-  Download,
 } from "lucide-react";
 import { useToast } from "../components/ui/use-toast";
 import ExpenseTracker from "./ExpenseTracker";
 import BudgetManager from "./BudgetManager";
-import ExpenseForm from "./ExpenseForm";
+import ExpenseFormModal, { ExpenseData } from "./ExpenseFormModal";
 import InitialQuestionnaire from "./InitialQuestionnaire";
+import api from "../api";
+
+interface Budget {
+  _id: string;
+  category: string;
+  period: string;
+  budget: number;
+  spent: number;
+  userId: string;
+  color?: string;
+  remaining?: number;
+  statusPercentage?: number;
+}
+
+interface ExpenseSummary {
+  totalSpent: number;
+  categories: { [key: string]: number };
+}
+
+interface Profile {
+  monthlyIncomeAfterTaxes: number;
+  housingExpense: number;
+  transportationExpense: number;
+  foodGroceriesExpense: number;
+  spendingPriorities: string[];
+  financialGoals: string[];
+  monthlySavingTarget: number;
+  nonEssentialsShoppingFrequency: string;
+  diningOutFrequency: string;
+  currentStep: number;
+  profileCompleted: boolean;
+}
+
+interface UserInfo {
+  username: string;
+  img?: string;
+  monthlyBudget?: number;
+  balance?: number;
+}
 
 const HomePage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [showQuestionnaire, setShowQuestionnaire] = useState(true); // Set to true to show questionnaire by default
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [notifications] = useState([
-    {
-      id: 1,
-      title: "Budget Alert",
-      message: "You've spent 85% of your Restaurants budget",
-      type: "warning",
-      time: "2 hours ago",
-    },
-    {
-      id: 2,
-      title: "Weekly Report",
-      message: "Your weekly spending report is ready",
-      type: "info",
-      time: "1 day ago",
-    },
-  ]);
-  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(true);
-
-  // Mock user data
-  const user = {
-    name: "John Doe",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=John",
-    totalBalance: 2450.75,
-    monthlyBudget: 3000,
-    spentThisMonth: 1850.25,
-  };
-
-  // Mock expense categories
-  const categories = [
-    { name: "Rent/Mortgage", amount: 1200, color: "#FF6384" },
-    { name: "Groceries", amount: 320, color: "#36A2EB" },
-    { name: "Restaurants & Dining Out", amount: 220, color: "#FFCE56" },
-    { name: "Gas/Fuel", amount: 150, color: "#4BC0C0" },
-    { name: "Electricity", amount: 120, color: "#9966FF" },
-    {
-      name: "Streaming Services (Netflix, Spotify)",
-      amount: 45,
-      color: "#FF9F40",
-    },
-  ];
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "expenses" | "budgets"
+  >("dashboard");
+  const [showQuestionnaire, setShowQuestionnaire] = useState(false);
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [budgets, setBudgets] = useState<Budget[]>([]);
+  const [expenseSummary, setExpenseSummary] = useState<ExpenseSummary>({
+    totalSpent: 0,
+    categories: {},
+  });
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [hasUnreadNotifications] = useState(true);
 
   const handleCompleteQuestionnaire = () => {
     setShowQuestionnaire(false);
+    loadData();
   };
 
-  const handleAddExpense = () => {
-    setShowExpenseForm(true);
+  const handleNotificationClick = () => navigate("/notifications");
+  const handleImportData = () => navigate("/import");
+  const handleHelpSupport = () => navigate("/help");
+  const handleSettings = () => navigate("/settings");
+
+  const handleExpenseSubmit = async (data: ExpenseData) => {
+    try {
+      const payload = {
+        ...data,
+        date: data.date instanceof Date ? data.date.toISOString() : data.date,
+      };
+      await api.post("/expenses", payload);
+      toast({ title: "Expense Added", description: "Your expense has been recorded." });
+      loadData();
+    } catch (err: any) {
+      toast({ title: "Add Failed", description: err.message, variant: "destructive" });
+    }
   };
 
-  const handleExpenseSubmit = () => {
-    setShowExpenseForm(false);
-    toast({
-      title: "Expense Added",
-      description: "Your expense has been successfully recorded.",
-    });
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      // Fetch profile
+      const profRes = await api.get("/financial/profile");
+      const prof = profRes.data.data;
+      setProfile(prof);
+      try {
+        const userRes = await api.get(`/users/${prof.userId}`);
+        const u = userRes.data;
+        setUserInfo({
+          username: u.username,
+          img: u.img,
+          monthlyBudget: u.monthlyBudget,
+          balance: u.balance,
+        });
+      } catch {
+        // ignore; fallback to generic avatar
+      }
+      if (!prof.profileCompleted || prof.currentStep < 5) {
+        setShowQuestionnaire(true);
+        setLoading(false);
+        return;
+      }
+      // Fetch budgets
+      const budgRes = await api.get("/budget");
+      setBudgets(budgRes.data.data);
+      // Fetch expense summary
+      const month = new Date().toISOString().slice(0, 7);
+      const sumRes = await api.get("/expenses/summary", { params: { month } });
+      setExpenseSummary(sumRes.data);
+    } catch (err: any) {
+      toast({
+        title: "Error fetching data",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleNotificationClick = () => {
-    navigate("/notifications");
-  };
+  useEffect(() => {
+    loadData();
+  }, []);
 
-  const handleImportData = () => {
-    navigate("/import");
-  };
-
-  const handleHelpSupport = () => {
-    navigate("/help");
-  };
-
-  const handleSettings = () => {
-    navigate("/settings");
-  };
-
-  if (showQuestionnaire) {
+  if (loading)
+    return (
+      <div className="flex items-center justify-center h-screen">Loading…</div>
+    );
+  if (showQuestionnaire)
     return <InitialQuestionnaire onComplete={handleCompleteQuestionnaire} />;
-  }
 
-  if (showExpenseForm) {
-    return <ExpenseForm onSubmit={handleExpenseSubmit} />;
-  }
+  // Derived values
+  const monthlyBudget = budgets.reduce((sum, b) => sum + b.budget, 0);
+  const spentThisMonth = expenseSummary.totalSpent;
+  const totalBalance = monthlyBudget - spentThisMonth;
+
+  const expenseCategories = Object.entries(expenseSummary.categories).map(
+    ([name, amount]) => {
+      const budg = budgets.find((b) => b.category === name);
+      return { name, amount, color: budg?.color || "#888888" };
+    }
+  );
 
   return (
     <div className="flex flex-col md:flex-row h-screen bg-background">
@@ -130,8 +187,18 @@ const HomePage = () => {
               )}
             </Button>
             <Avatar className="h-8 w-8">
-              <AvatarImage src={user.avatar} alt={user.name} />
-              <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+              <AvatarImage
+                src={
+                  userInfo?.img ||
+                  `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                    userInfo?.username || "User"
+                  }`
+                }
+                alt={userInfo?.username}
+              />
+              <AvatarFallback>
+                {userInfo?.username?.charAt(0) || "U"}
+              </AvatarFallback>
             </Avatar>
           </div>
         </div>
@@ -260,10 +327,20 @@ const HomePage = () => {
             </Button>
             <div className="flex items-center">
               <Avatar className="h-8 w-8">
-                <AvatarImage src={user.avatar} alt={user.name} />
-                <AvatarFallback>{user.name.charAt(0)}</AvatarFallback>
+                <AvatarImage
+                  src={
+                    userInfo?.img ||
+                    `https://api.dicebear.com/7.x/avataaars/svg?seed=${
+                      userInfo?.username || "User"
+                    }`
+                  }
+                  alt={userInfo?.username}
+                />
+                <AvatarFallback>
+                  {userInfo?.username?.charAt(0) || "U"}
+                </AvatarFallback>
               </Avatar>
-              <span className="ml-2 font-medium">{user.name}</span>
+              <span className="ml-2 font-medium">{userInfo?.username}</span>
             </div>
           </div>
         </header>
@@ -272,11 +349,52 @@ const HomePage = () => {
         <main className="flex-1 overflow-auto p-3 md:p-6">
           <Tabs
             value={activeTab}
-            onValueChange={setActiveTab}
+            onValueChange={(val) => setActiveTab(val as any)}
             className="w-full"
           >
             <TabsContent value="dashboard" className="space-y-4 md:space-y-6">
-              {/* Financial Overview */}
+              {/* --- Profile Details Section --- */}
+              {profile && (
+                <Card>
+                  <CardContent className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4">
+                    <div>
+                      <strong>Income:</strong> $
+                      {profile.monthlyIncomeAfterTaxes}
+                    </div>
+                    <div>
+                      <strong>Housing:</strong> ${profile.housingExpense}
+                    </div>
+                    <div>
+                      <strong>Transport:</strong> $
+                      {profile.transportationExpense}
+                    </div>
+                    <div>
+                      <strong>Food:</strong> ${profile.foodGroceriesExpense}
+                    </div>
+                    <div>
+                      <strong>Saving Goal:</strong> $
+                      {profile.monthlySavingTarget}
+                    </div>
+                    <div>
+                      <strong>Shop Freq:</strong>{" "}
+                      {profile.nonEssentialsShoppingFrequency}
+                    </div>
+                    <div>
+                      <strong>Dine Freq:</strong> {profile.diningOutFrequency}
+                    </div>
+                    <div>
+                      <strong>Priorities:</strong>{" "}
+                      {profile.spendingPriorities.join(", ")}
+                    </div>
+                    <div>
+                      <strong>Goals:</strong>{" "}
+                      {profile.financialGoals.join(", ")}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Financial Overview (unchanged) */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                 <Card>
                   <CardContent className="p-4 md:p-6">
@@ -285,7 +403,7 @@ const HomePage = () => {
                         Total Balance
                       </span>
                       <span className="text-xl md:text-2xl font-bold">
-                        ${user.totalBalance.toFixed(2)}
+                        ${totalBalance.toFixed(2)}
                       </span>
                     </div>
                   </CardContent>
@@ -297,7 +415,7 @@ const HomePage = () => {
                         Monthly Budget
                       </span>
                       <span className="text-xl md:text-2xl font-bold">
-                        ${user.monthlyBudget.toFixed(2)}
+                        ${monthlyBudget.toFixed(2)}
                       </span>
                     </div>
                   </CardContent>
@@ -309,31 +427,31 @@ const HomePage = () => {
                         Spent This Month
                       </span>
                       <span className="text-xl md:text-2xl font-bold">
-                        ${user.spentThisMonth.toFixed(2)}
+                        ${spentThisMonth.toFixed(2)}
                       </span>
                     </div>
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Expense Summary */}
+              {/* Expense Categories (unchanged) */}
               <Card>
                 <CardContent className="p-4 md:p-6">
                   <h3 className="text-lg font-medium mb-4">
                     Expense Categories
                   </h3>
                   <div className="space-y-3 md:space-y-4">
-                    {categories.map((category) => (
-                      <div key={category.name} className="flex items-center">
+                    {expenseCategories.map((cat) => (
+                      <div key={cat.name} className="flex items-center">
                         <div
                           className="w-3 h-3 rounded-full mr-3 flex-shrink-0"
-                          style={{ backgroundColor: category.color }}
+                          style={{ backgroundColor: cat.color }}
                         ></div>
                         <span className="flex-1 text-sm md:text-base truncate pr-2">
-                          {category.name}
+                          {cat.name}
                         </span>
                         <span className="font-medium text-sm md:text-base flex-shrink-0">
-                          ${category.amount}
+                          ${cat.amount}
                         </span>
                       </div>
                     ))}
@@ -342,13 +460,7 @@ const HomePage = () => {
               </Card>
 
               <div className="flex flex-col sm:flex-row justify-center gap-3">
-                <Button
-                  onClick={handleAddExpense}
-                  className="flex items-center"
-                >
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Add New Expense
-                </Button>
+                 <ExpenseFormModal trigger={<Button><PlusCircle className="mr-2"/>Add New Expense</Button>} onSubmit={handleExpenseSubmit} />
                 <Button
                   variant="outline"
                   onClick={handleImportData}

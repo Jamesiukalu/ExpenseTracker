@@ -12,7 +12,6 @@ import {
 } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Label } from "../../components/ui/label";
 import {
   Form,
   FormControl,
@@ -21,34 +20,22 @@ import {
   FormLabel,
   FormMessage,
 } from "../../components/ui/form";
-import { Checkbox } from "../../components/ui/checkbox";
 import { Wallet, Eye, EyeOff, Loader2 } from "lucide-react";
 import { useToast } from "../../components/ui/use-toast";
+import api from "../../api";
 
 const registerSchema = z
   .object({
-    firstName: z.string().min(2, "First name must be at least 2 characters"),
-    lastName: z.string().min(2, "Last name must be at least 2 characters"),
+    username: z.string().min(5, "Username must be at least 5 characters"),
     email: z.string().email("Please enter a valid email address"),
     password: z
       .string()
-      .min(8, "Password must be at least 8 characters")
-      .regex(
-        /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
-        "Password must contain at least one uppercase letter, one lowercase letter, and one number",
-      ),
-    confirmPassword: z.string(),
-    acceptTerms: z
-      .boolean()
-      .refine(
-        (val) => val === true,
-        "You must accept the terms and conditions",
-      ),
+      .min(7, "Password must be at least 7 characters")
+        .regex(
+          /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+          "Password must contain at least one uppercase letter, one lowercase letter, and one number",
+        ),
   })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ["confirmPassword"],
-  });
 
 type RegisterFormData = z.infer<typeof registerSchema>;
 
@@ -59,29 +46,23 @@ interface RegisterProps {
 const Register = ({ onRegister }: RegisterProps = {}) => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
+      username: "",
       email: "",
       password: "",
-      confirmPassword: "",
-      acceptTerms: false,
     },
   });
 
   const onSubmit = async (data: RegisterFormData) => {
     setIsLoading(true);
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // Mock registration logic
+      await api.post("/auth/register", data);
       toast({
         title: "Account Created Successfully",
         description:
@@ -91,9 +72,12 @@ const Register = ({ onRegister }: RegisterProps = {}) => {
       if (onRegister) {
         onRegister();
       } else {
-        navigate("/login");
+        navigate("/questionnaire");
       }
     } catch (error) {
+      setError(
+        error.response?.data || "Registration failed. Please try again."
+      );
       toast({
         title: "Registration Failed",
         description: "Something went wrong. Please try again.",
@@ -123,13 +107,13 @@ const Register = ({ onRegister }: RegisterProps = {}) => {
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="firstName"
+                  name="username"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>First Name</FormLabel>
+                      <FormLabel>UserName</FormLabel>
                       <FormControl>
                         <Input
-                          placeholder="John"
+                          placeholder="Username"
                           {...field}
                           disabled={isLoading}
                         />
@@ -138,24 +122,6 @@ const Register = ({ onRegister }: RegisterProps = {}) => {
                     </FormItem>
                   )}
                 />
-                <FormField
-                  control={form.control}
-                  name="lastName"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last Name</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Doe"
-                          {...field}
-                          disabled={isLoading}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
               <FormField
                 control={form.control}
                 name="email"
@@ -174,6 +140,7 @@ const Register = ({ onRegister }: RegisterProps = {}) => {
                   </FormItem>
                 )}
               />
+              </div>
               <FormField
                 control={form.control}
                 name="password"
@@ -208,76 +175,6 @@ const Register = ({ onRegister }: RegisterProps = {}) => {
                   </FormItem>
                 )}
               />
-              <FormField
-                control={form.control}
-                name="confirmPassword"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Confirm Password</FormLabel>
-                    <FormControl>
-                      <div className="relative">
-                        <Input
-                          type={showConfirmPassword ? "text" : "password"}
-                          placeholder="Confirm your password"
-                          {...field}
-                          disabled={isLoading}
-                        />
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                          onClick={() =>
-                            setShowConfirmPassword(!showConfirmPassword)
-                          }
-                          disabled={isLoading}
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="acceptTerms"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                    <FormControl>
-                      <Checkbox
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <div className="space-y-1 leading-none">
-                      <FormLabel className="text-sm">
-                        I agree to the{" "}
-                        <Link
-                          to="/terms"
-                          className="text-primary hover:underline"
-                        >
-                          Terms of Service
-                        </Link>{" "}
-                        and{" "}
-                        <Link
-                          to="/privacy"
-                          className="text-primary hover:underline"
-                        >
-                          Privacy Policy
-                        </Link>
-                      </FormLabel>
-                      <FormMessage />
-                    </div>
-                  </FormItem>
-                )}
-              />
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? (
                   <>
@@ -289,11 +186,12 @@ const Register = ({ onRegister }: RegisterProps = {}) => {
                 )}
               </Button>
             </form>
+            {error && <div style={{ color: "red" }}>{error}</div>}
           </Form>
           <div className="mt-6 text-center">
             <p className="text-sm text-muted-foreground">
               Already have an account?{" "}
-              <Link to="/login" className="text-primary hover:underline">
+              <Link to="/" className="text-primary hover:underline">
                 Sign in
               </Link>
             </p>

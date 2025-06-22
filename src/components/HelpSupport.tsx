@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -34,12 +35,11 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { useToast } from "./ui/use-toast";
+import api from "../api";
 
-interface HelpSupportProps {
-  onBack?: () => void;
-}
 
-const HelpSupport = ({ onBack = () => {} }: HelpSupportProps) => {
+const HelpSupport = () => {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("faq");
   const [contactForm, setContactForm] = useState({
     name: "",
@@ -51,6 +51,9 @@ const HelpSupport = ({ onBack = () => {} }: HelpSupportProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const onBack = () => {
+    navigate(-1); // Go back to previous page
+  };
 
   const faqs = [
     {
@@ -124,24 +127,35 @@ const HelpSupport = ({ onBack = () => {} }: HelpSupportProps) => {
       return;
     }
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-
-    toast({
-      title: "Message Sent",
-      description:
-        "Thank you for contacting us! We'll get back to you within 24 hours.",
-    });
-
-    // Reset form
-    setContactForm({
-      name: "",
-      email: "",
-      subject: "",
-      category: "",
-      message: "",
-    });
-    setIsSubmitting(false);
+    try {
+      await api.post("/contact", {
+        name: contactForm.name,
+        email: contactForm.email,
+        subject: contactForm.subject,
+        category: contactForm.category,
+        message: contactForm.message,
+      });
+      toast({
+        title: "Message Sent",
+        description: "Thank you for contacting us! We'll get back to you within 24 hours.",
+      });
+      // Reset form
+      setContactForm({
+        name: "",
+        email: "",
+        subject: "",
+        category: "",
+        message: "",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Submission Failed",
+        description: error.response?.data?.error || error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

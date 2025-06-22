@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -17,7 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { Alert, AlertDescription } from "../components/ui/alert";
 import {
   Dialog,
@@ -47,26 +53,99 @@ import {
   Globe,
 } from "lucide-react";
 import { useToast } from "../components/ui/use-toast";
+import api from "../api";
 
 interface SettingsProps {
-  onBack?: () => void;
+  userId: string; // <-- pass your logged-in user ID into this screen
 }
 
-const Settings = ({ onBack = () => {} }: SettingsProps) => {
-  const [profile, setProfile] = useState({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+1 (555) 123-4567",
-    bio: "Financial enthusiast focused on smart budgeting and investment strategies.",
-    location: "New York, NY",
-    website: "https://johndoe.com",
-    avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
-    currency: "USD",
-    timezone: "America/New_York",
-    dateFormat: "MM/DD/YYYY",
-    language: "en",
-    theme: "system",
+interface Profile {
+  name: string;
+  email: string;
+  avatar: string;
+  phone: string;
+  bio: string;
+  location: string;
+  website: string;
+  currency: string;
+  timezone: string;
+  dateFormat: string;
+  language: string;
+  theme: string;
+}
+
+const Settings: React.FC<SettingsProps> = ({ userId }) => {
+  const navigate = useNavigate();
+  const [profile, setProfile] = useState<Profile>({
+    name: "",
+    email: "",
+    avatar: "",
+    phone: "",
+    bio: "",
+    location: "",
+    website: "",
+    currency: "",
+    timezone: "",
+    dateFormat: "",
+    language: "",
+    theme: "",
   });
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const profRes = await api.get("/financial/profile");
+        const prof = profRes.data.data;
+        setProfile(prof);
+        const userRes = await api.get(`/users/${prof.userId}`);
+        const u = userRes.data;
+        setProfile((p) => ({
+          ...p,
+          name: u.username,
+          email: u.email,
+          avatar:
+            u.img || "https://api.dicebear.com/7.x/avataaars/svg?seed=john",
+          phone: u.phone || "+1 (555) 123-4567",
+          bio:
+            u.desc ||
+            "Financial enthusiast focused on smart budgeting and investment strategies.",
+          location: u.location || "location",
+          website: u.website || "null",
+          currency: u.currency || "USD",
+          timezone: u.timezone || "America/New_York",
+          dateFormat: u.dateFormat || "MM/DD/YYYY",
+          language: u.language || "en",
+          theme: u.theme || "system",
+          // you could pull more fields if your model grows…
+        }));
+      } catch (err) {
+        toast({ title: "Couldn’t load profile", variant: "destructive" });
+      }
+    };
+    loadProfile();
+  }, []);
+
+  const handleDeleteAccount = async () => {
+    setIsSaving(true);
+    try {
+      await api.delete(`/users/${userId}`);
+      toast({
+        title: "Account Deleted",
+        description: "Your account has been permanently removed.",
+        variant: "destructive",
+      });
+      // e.g. log out / redirect to login
+      onBack();
+    } catch (err: any) {
+      toast({
+        title: "Delete Failed",
+        description: err.message,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+      setIsDeleteDialogOpen(false);
+    }
+  };
 
   const [notifications, setNotifications] = useState({
     budgetAlerts: true,
@@ -96,7 +175,9 @@ const Settings = ({ onBack = () => {} }: SettingsProps) => {
       description: "Your profile settings have been saved successfully.",
     });
   };
-
+  const onBack = () => {
+    navigate(-1); // Go back to previous page
+  };
   const handleSaveNotifications = async () => {
     setIsSaving(true);
     await new Promise((resolve) => setTimeout(resolve, 1000));
@@ -128,18 +209,6 @@ const Settings = ({ onBack = () => {} }: SettingsProps) => {
     toast({
       title: "Data Exported",
       description: "Your data has been exported successfully.",
-    });
-  };
-
-  const handleDeleteAccount = async () => {
-    // Simulate account deletion
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    setIsDeleteDialogOpen(false);
-    toast({
-      title: "Account Deletion Initiated",
-      description:
-        "Your account deletion request has been submitted. You will receive a confirmation email.",
-      variant: "destructive",
     });
   };
 
@@ -207,10 +276,7 @@ const Settings = ({ onBack = () => {} }: SettingsProps) => {
                   <Avatar className="h-20 w-20">
                     <AvatarImage src={profile.avatar} alt={profile.name} />
                     <AvatarFallback className="text-lg">
-                      {profile.name
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")}
+                    {profile.name ? profile.name.split(" ").map((n) => n[0]).join("") : ""}
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-2">
@@ -293,7 +359,7 @@ const Settings = ({ onBack = () => {} }: SettingsProps) => {
                     className="min-h-[100px]"
                   />
                   <p className="text-sm text-muted-foreground">
-                    {profile.bio.length}/500 characters
+                    {/* {profile.bio.length}/500 characters */}
                   </p>
                 </div>
 

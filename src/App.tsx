@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { Routes, Route } from "react-router-dom";
+import InitialQuestionnaire from "./components/InitialQuestionnaire";
 import Home from "./components/home";
 import ImportData from "./components/ImportData";
 import HelpSupport from "./components/HelpSupport";
@@ -15,13 +16,14 @@ function App() {
     <Suspense fallback={<p>Loading...</p>}>
       <>
         <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<Login />} /> {/* Entry point is Login */}
+          <Route path="/register" element={<Register />} />
+          <Route path="/questionnaire" element={<InitialQuestionnaire />} />
+          <Route path="/home" element={<Home />} />
           <Route path="/import" element={<ImportData />} />
           <Route path="/help" element={<HelpSupport />} />
-          <Route path="/settings" element={<Settings />} />   
+          <Route path="/settings" element={<Settings userId={""} />} />   
           <Route path="/notifications" element={<Notifications />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />     
         </Routes>
           <Toaster />
