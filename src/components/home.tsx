@@ -13,6 +13,7 @@ import {
   Wallet,
   HelpCircle,
   Upload,
+  LogOut,
 } from "lucide-react";
 import { useToast } from "../components/ui/use-toast";
 import ExpenseTracker from "./ExpenseTracker";
@@ -85,7 +86,6 @@ const HomePage = () => {
   const handleImportData = () => navigate("/import");
   const handleHelpSupport = () => navigate("/help");
   const handleSettings = () => navigate("/settings");
-
   const handleExpenseSubmit = async (data: ExpenseData) => {
     try {
       const payload = {
@@ -128,8 +128,10 @@ const HomePage = () => {
       const budgRes = await api.get("/budget");
       setBudgets(budgRes.data.data);
       // Fetch expense summary
-      const month = new Date().toISOString().slice(0, 7);
-      const sumRes = await api.get("/expenses/summary", { params: { month } });
+      // const month = new Date().toISOString().slice(0, 7);
+      // const sumRes = await api.get("/expenses/summary", { params: { month } });
+      // setExpenseSummary(sumRes.data);
+      const sumRes = await api.get("/expenses/summary");
       setExpenseSummary(sumRes.data);
     } catch (err: any) {
       toast({
@@ -142,6 +144,15 @@ const HomePage = () => {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      await api.post("/auth/logout");
+      toast({ title: "Logged Out", description: "You have been logged out." });
+      navigate("/");
+    } catch (err: any) {
+      toast({ title: "Logout Failed", description: err.message, variant: "destructive" });
+    }
+  }
   useEffect(() => {
     loadData();
   }, []);
@@ -300,6 +311,14 @@ const HomePage = () => {
           >
             <Settings className="mr-2 h-4 w-4" />
             Settings
+          </Button>
+          <Button
+            variant="ghost"
+            className="w-full justify-start"
+            onClick={handleLogout}
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
           </Button>
         </div>
       </div>

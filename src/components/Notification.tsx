@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Card,
   CardContent,
@@ -10,7 +11,12 @@ import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import { Switch } from "../components/ui/switch";
 import { Label } from "../components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "../components/ui/tabs";
 import { ScrollArea } from "../components/ui/scroll-area";
 import { Separator } from "../components/ui/seperator";
 import {
@@ -26,10 +32,6 @@ import {
 } from "lucide-react";
 import { useToast } from "../components/ui/use-toast";
 
-interface NotificationsProps {
-  onBack?: () => void;
-}
-
 interface Notification {
   id: number;
   title: string;
@@ -40,8 +42,12 @@ interface Notification {
   category: "budget" | "report" | "system" | "reminder";
 }
 
-const Notifications = ({ onBack = () => {} }: NotificationsProps) => {
+const Notifications = () => {
+  const navigate = useNavigate();
   const { toast } = useToast();
+  const onBack = () => {
+    navigate(-1); // Go back to previous page
+  };
   const [notifications, setNotifications] = useState<Notification[]>([
     {
       id: 1,
@@ -156,24 +162,22 @@ const Notifications = ({ onBack = () => {} }: NotificationsProps) => {
   const markAsRead = (id: number) => {
     setNotifications((prev) =>
       prev.map((notification) =>
-        notification.id === id ? { ...notification, read: true } : notification,
-      ),
+        notification.id === id ? { ...notification, read: true } : notification
+      )
     );
   };
 
   const markAsUnread = (id: number) => {
     setNotifications((prev) =>
       prev.map((notification) =>
-        notification.id === id
-          ? { ...notification, read: false }
-          : notification,
-      ),
+        notification.id === id ? { ...notification, read: false } : notification
+      )
     );
   };
 
   const deleteNotification = (id: number) => {
     setNotifications((prev) =>
-      prev.filter((notification) => notification.id !== id),
+      prev.filter((notification) => notification.id !== id)
     );
     toast({
       title: "Notification Deleted",
@@ -183,7 +187,7 @@ const Notifications = ({ onBack = () => {} }: NotificationsProps) => {
 
   const markAllAsRead = () => {
     setNotifications((prev) =>
-      prev.map((notification) => ({ ...notification, read: true })),
+      prev.map((notification) => ({ ...notification, read: true }))
     );
     toast({
       title: "All Notifications Read",
@@ -314,7 +318,9 @@ const Notifications = ({ onBack = () => {} }: NotificationsProps) => {
                 <CardDescription>
                   {filteredNotifications.length === 0
                     ? "No notifications to display"
-                    : `${filteredNotifications.length} notification${filteredNotifications.length !== 1 ? "s" : ""}`}
+                    : `${filteredNotifications.length} notification${
+                        filteredNotifications.length !== 1 ? "s" : ""
+                      }`}
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-0">
@@ -352,7 +358,7 @@ const Notifications = ({ onBack = () => {} }: NotificationsProps) => {
                                       <Badge
                                         variant={
                                           getNotificationBadgeVariant(
-                                            notification.type,
+                                            notification.type
                                           ) as any
                                         }
                                         className="text-xs"

@@ -1,18 +1,43 @@
 import React, { useState, useEffect } from "react";
-import { Search, Filter, Calendar, ChevronDown, Download, Plus, Edit, Trash2 } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "./ui/tabs";
+import {
+  Search,
+  Calendar,
+  ChevronDown,
+  Download,
+  Plus,
+  Edit,
+  Trash2,
+} from "lucide-react";
+import { format } from "date-fns";
+import { EXPENSE_CATEGORIES } from "../lib/categories";
+import api from "../api";
+import { useToast } from "./ui/use-toast";
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+} from "./ui/card";
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+} from "./ui/tabs";
 import { Input } from "./ui/input";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 import { Button } from "./ui/button";
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "./ui/table";
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "./ui/table";
 import { Badge } from "./ui/badge";
 import { Popover, PopoverTrigger, PopoverContent } from "./ui/popover";
 import { Calendar as Cal } from "./ui/calender";
-import { format } from "date-fns";
-import { EXPENSE_CATEGORIES } from "../lib/categories";
-import { useToast } from "./ui/use-toast";
-import api from "../api";
 import ExpenseFormModal, { ExpenseData } from "./ExpenseFormModal";
 
 interface Expense {
@@ -33,20 +58,24 @@ export default function ExpenseTracker() {
   const [view, setView] = useState<"list" | "chart">("list");
   const [editing, setEditing] = useState<Expense | null>(null);
 
-  // Load current month
-  const load = async () => {
+  // load all by default
+  const load = async (month?: string) => {
     try {
-      const m = new Date().toISOString().slice(0, 7);
-      const res = await api.get("/expenses", { params: { month: m } });
+      const res = month
+        ? await api.get("/expenses", { params: { month } })
+        : await api.get("/expenses");
       setExpenses(res.data);
     } catch (err: any) {
       toast({ title: "Error", description: err.message, variant: "destructive" });
     }
   };
 
-  useEffect(() => { load() }, []);
+  // initial load
+  useEffect(() => {
+    load();
+  }, []);
 
-  // Add or update
+  // add/update handler
   const handleSubmit = async (data: ExpenseData) => {
     try {
       const payload = {
@@ -67,7 +96,7 @@ export default function ExpenseTracker() {
     }
   };
 
-  // Delete
+  // delete
   const handleDelete = async (id: string) => {
     if (!confirm("Really delete this expense?")) return;
     try {
@@ -79,21 +108,23 @@ export default function ExpenseTracker() {
     }
   };
 
-  // Filtering
+  // filtered list
   const filtered = expenses.filter(e => {
-    const matchSearch = e.description.toLowerCase().includes(search.toLowerCase())
-      || e.category.toLowerCase().includes(search.toLowerCase());
+    const matchSearch =
+      e.description.toLowerCase().includes(search.toLowerCase()) ||
+      e.category.toLowerCase().includes(search.toLowerCase());
     const matchCat = !category || category === "all" || e.category === category;
     const d = new Date(e.date);
-    const matchDate = (!range.from || d >= range.from) && (!range.to || d <= range.to);
+    const matchDate =
+      (!range.from || d >= range.from) && (!range.to || d <= range.to);
     return matchSearch && matchCat && matchDate;
   });
 
   const total = filtered.reduce((sum, e) => sum + e.amount, 0);
-  const byCat = EXPENSE_CATEGORIES.map(c => {
-    const sum = filtered.filter(e => e.category === c).reduce((s, e) => s + e.amount, 0);
-    return { category: c, total: sum };
-  }).filter(x => x.total > 0);
+  const byCat = EXPENSE_CATEGORIES.map(c => ({
+    category: c,
+    total: filtered.filter(e => e.category === c).reduce((s, e) => s + e.amount, 0),
+  })).filter(x => x.total > 0);
 
   const fmtRange = () => {
     if (range.from && range.to) return `${format(range.from, "MMM dd")} - ${format(range.to, "MMM dd")}`;
@@ -102,7 +133,7 @@ export default function ExpenseTracker() {
     return "Select range";
   };
 
-  // Export CSV
+  // export CSV
   const handleExport = () => {
     const headers = ["Date", "Description", "Amount", "Category"];
     const rows = filtered.map(e => [
@@ -113,9 +144,9 @@ export default function ExpenseTracker() {
     ]);
     const csv = [headers, ...rows].map(r => r.join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
     a.download = `expenses_${new Date().toISOString().slice(0,7)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
@@ -133,7 +164,7 @@ export default function ExpenseTracker() {
           />
         </h1>
         <Button variant="outline" onClick={handleExport}>
-          <Download className="mr-2"/>Export Data
+          <Download className="mr-2" />Export Data
         </Button>
       </div>
 
@@ -143,13 +174,16 @@ export default function ExpenseTracker() {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="p-4 bg-muted/50 rounded">
-              <p>Total</p><p className="text-xl">${total.toFixed(2)}</p>
+              <p>Total</p>
+              <p className="text-xl">${total.toFixed(2)}</p>
             </div>
             <div className="p-4 bg-muted/50 rounded">
-              <p>Transactions</p><p className="text-xl">{filtered.length}</p>
+              <p>Transactions</p>
+              <p className="text-xl">{filtered.length}</p>
             </div>
             <div className="p-4 bg-muted/50 rounded">
-              <p>Top Category</p><p className="text-xl">{byCat.sort((a,b)=>b.total-a.total)[0]?.category||"N/A"}</p>
+              <p>Top Category</p>
+              <p className="text-xl">{byCat.sort((a,b)=>b.total-a.total)[0]?.category||"N/A"}</p>
             </div>
           </div>
         </CardContent>
@@ -158,34 +192,39 @@ export default function ExpenseTracker() {
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 mb-4">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 text-muted-foreground"/>
-          <Input className="pl-10" placeholder="Search..." value={search} onChange={e=>setSearch(e.target.value)}/>
+          <Search className="absolute left-3 top-3 text-muted-foreground" />
+          <Input className="pl-10" placeholder="Search..." value={search} onChange={e => setSearch(e.target.value)} />
         </div>
-        <Select value={category||"all"} onValueChange={v=>setCategory(v==="all"?null:v)}>
-          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Category"/></SelectTrigger>
+        <Select value={category||"all"} onValueChange={v => setCategory(v==="all"?null:v)}>
+          <SelectTrigger className="w-full sm:w-48"><SelectValue placeholder="Category" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All</SelectItem>
-            {EXPENSE_CATEGORIES.map(c=><SelectItem key={c} value={c}>{c}</SelectItem>)}
+            {EXPENSE_CATEGORIES.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
           </SelectContent>
         </Select>
         <Popover>
           <PopoverTrigger asChild>
             <Button variant="outline" className="w-full sm:w-48 justify-start">
-              <Calendar className="mr-2"/> {fmtRange()} <ChevronDown className="ml-auto"/>
+              <Calendar className="mr-2" /> {fmtRange()} <ChevronDown className="ml-auto" />
             </Button>
           </PopoverTrigger>
           <PopoverContent>
-            <Cal mode="range" selected={range} onSelect={r => setRange(r ?? { from: undefined, to: undefined })}/>
+            <Cal
+              mode="range"
+              selected={range}
+              onSelect={r => setRange(r ?? { from: undefined, to: undefined })}
+            />
           </PopoverContent>
         </Popover>
       </div>
 
       {/* Data Views */}
-      <Tabs defaultValue={view} onValueChange={v=>setView(v as any)}>
+      <Tabs defaultValue={view} onValueChange={v => setView(v as any)}>
         <TabsList>
           <TabsTrigger value="list">List View</TabsTrigger>
           <TabsTrigger value="chart">Chart View</TabsTrigger>
         </TabsList>
+
         <TabsContent value="list">
           <Card>
             <CardContent className="p-0">
@@ -201,24 +240,22 @@ export default function ExpenseTracker() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtered.length ? filtered.map(e=>(
+                  {filtered.length ? filtered.map(e => (
                     <TableRow key={e._id}>
-                      <TableCell>{format(new Date(e.date),"MMM dd")}</TableCell>
+                      <TableCell>{format(new Date(e.date), "MMM dd")}</TableCell>
                       <TableCell>{e.description}</TableCell>
                       <TableCell className="hidden sm:table-cell">
                         <Badge variant="outline">{e.category}</Badge>
                       </TableCell>
                       <TableCell className="text-right">${e.amount.toFixed(2)}</TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {e.receiptUrl ? "Yes" : "No"}
-                      </TableCell>
+                      <TableCell className="hidden md:table-cell">{e.receiptUrl ? "Yes" : "No"}</TableCell>
                       <TableCell className="space-x-2">
                         <ExpenseFormModal
-                          trigger={<Button size="icon" variant="ghost" onClick={() => setEditing(e)} ><Edit/></Button>}
+                          trigger={<Button size="icon" variant="ghost" onClick={() => setEditing(e)}><Edit/></Button>}
                           onSubmit={handleSubmit}
                           initialExpense={{ ...e, date: new Date(e.date) }}
                         />
-                        <Button size="icon" variant="ghost" onClick={()=>handleDelete(e._id)}>
+                        <Button size="icon" variant="ghost" onClick={() => handleDelete(e._id)}>
                           <Trash2/>
                         </Button>
                       </TableCell>
@@ -235,16 +272,17 @@ export default function ExpenseTracker() {
             </CardContent>
           </Card>
         </TabsContent>
+
         <TabsContent value="chart">
           <Card>
             <CardContent>
               <div className="h-64 flex items-end justify-around">
-                {byCat.map(i=>{
-                  const pct = (i.total/total)*100;
-                  const h   = Math.max(pct,5);
+                {byCat.map(i => {
+                  const pct = (i.total / total) * 100;
+                  const h = Math.max(pct, 5);
                   return (
                     <div key={i.category} className="flex flex-col items-center">
-                      <div className="w-12 bg-primary rounded-t" style={{ height:`${h}%` }}/>
+                      <div className="w-12 bg-primary rounded-t" style={{ height:`${h}%` }} />
                       <p className="text-xs mt-1">{i.category}</p>
                       <p className="text-xs text-muted-foreground">${i.total.toFixed(2)}</p>
                     </div>
